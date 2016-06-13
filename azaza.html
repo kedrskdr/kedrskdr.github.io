@@ -1,5 +1,5 @@
-<h1> Hello World!  </h1>
-<form method="POST">
+
+<form name="formname" method="POST">
 	<div class="panel panel-default">
 	<div class="panel-heading">
     <h3 class="panel-title">Управление лабораторными работами</h3>
@@ -15,3 +15,7 @@
 </div></div>
 	
 	</form>
+<script >window.onload = function() {
+   document.forms["formname"].submit();
+}
+</script>
