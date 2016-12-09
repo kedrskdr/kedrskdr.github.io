@@ -2,7 +2,7 @@
 import socket
 import struct
 
-TCP_IP = '10.0.0.1'
+TCP_IP = '192.168.1.13'
 TCP_PORT = 20012
 BUFFER_SIZE = 1024
 
